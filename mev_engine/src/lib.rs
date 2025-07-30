@@ -61,7 +61,7 @@ impl MEVEngine {
 
         self.processed_count += transactions.len() as u64;
 
-        // High-performance MEV detection algorithm
+        
         let mev_result = self.detect_sandwich_attacks(&transactions);
         
         match mev_result {
@@ -79,12 +79,12 @@ impl MEVEngine {
         let mut address_txs: HashMap<String, Vec<&Transaction>> = HashMap::new();
         let mut uniswap_swaps: Vec<&Transaction> = Vec::new();
 
-        // Categorize transactions
+        
         for tx in transactions {
-            // Group by sender address
+            
             address_txs.entry(tx.from.clone()).or_insert_with(Vec::new).push(tx);
 
-            // Identify Uniswap swap transactions
+            
             if let Some(ref to_addr) = tx.to {
                 if to_addr.to_lowercase() == self.uniswap_router {
                     if let Some(ref data) = tx.data {
@@ -96,7 +96,7 @@ impl MEVEngine {
             }
         }
 
-        // Look for sandwich patterns
+        
         for victim_tx in &uniswap_swaps {
             if let Some(sandwich) = self.find_sandwich_pattern(victim_tx, &address_txs, transactions) {
                 return Some(sandwich);
@@ -113,14 +113,14 @@ impl MEVEngine {
         
         let method_sig = &data[0..10];
         
-        // Common Uniswap swap method signatures
+        
         matches!(method_sig,
-            "0x38ed1739" | // swapExactTokensForTokens
-            "0x8803dbee" | // swapTokensForExactTokens
-            "0x7ff36ab5" | // swapExactETHForTokens
-            "0x18cbafe5" | // swapTokensForExactETH
-            "0x791ac947" | // swapExactTokensForETH
-            "0x4a25d94a"   // swapTokensForExactTokens
+            "0x38ed1739" | 
+            "0x8803dbee" | 
+            "0x7ff36ab5" | 
+            "0x18cbafe5" | 
+            "0x791ac947" | 
+            "0x4a25d94a"   
         )
     }
 
@@ -131,19 +131,19 @@ impl MEVEngine {
         all_transactions: &[Transaction],
     ) -> Option<MEVResult> {
         let victim_timestamp = victim_tx.timestamp;
-        let time_window = 120_000; // 120 seconds in milliseconds
+        let time_window = 120_000; 
 
-        // Look for potential attackers with multiple transactions
+        
         for (attacker_addr, attacker_txs) in address_txs {
             if attacker_addr == &victim_tx.from {
-                continue; // Skip self
+                continue; 
             }
 
             if attacker_txs.len() < 2 {
-                continue; // Need at least front-run and back-run
+                continue; 
             }
 
-            // Find front-run and back-run transactions
+            
             let mut front_run: Option<&Transaction> = None;
             let mut back_run: Option<&Transaction> = None;
 
@@ -167,7 +167,7 @@ impl MEVEngine {
                 }
             }
 
-            // If we found both front-run and back-run, it's likely a sandwich attack
+            
             if let (Some(front), Some(back)) = (front_run, back_run) {
                 let profit_eth = self.estimate_profit(front, victim_tx, back);
                 
@@ -192,18 +192,18 @@ impl MEVEngine {
         victim: &Transaction,
         back_run: &Transaction,
     ) -> f64 {
-        // Simplified profit estimation based on gas prices and values
+        
         let front_value = front_run.value.parse::<u128>().unwrap_or(0);
         let victim_value = victim.value.parse::<u128>().unwrap_or(0);
         let back_value = back_run.value.parse::<u128>().unwrap_or(0);
 
-        // Calculate potential profit in ETH (simplified)
+        
         let estimated_profit = (back_value as f64 - front_value as f64) / 1e18;
         
-        // Consider victim transaction size as profit factor
-        let victim_impact = (victim_value as f64 / 1e18) * 0.003; // ~0.3% slippage
         
-        (estimated_profit + victim_impact).max(0.001) // Minimum detectable profit
+        let victim_impact = (victim_value as f64 / 1e18) * 0.003; 
+        
+        (estimated_profit + victim_impact).max(0.001) 
     }
 
     #[wasm_bindgen(getter)]
@@ -212,14 +212,14 @@ impl MEVEngine {
     }
 }
 
-// Performance test function for load testing
+
 #[wasm_bindgen]
 pub fn benchmark_detection(iterations: u32) -> f64 {
     let start = js_sys::Date::now();
     
     let mut engine = MEVEngine::new();
     
-    // Generate test data
+    
     let test_batch = r#"[
         {
             "hash": "0x123",
@@ -254,6 +254,6 @@ pub fn benchmark_detection(iterations: u32) -> f64 {
     let end = js_sys::Date::now();
     let duration_ms = end - start;
     
-    // Return TPS
+    
     (iterations as f64 * 3.0) / (duration_ms / 1000.0)
 }

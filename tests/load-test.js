@@ -13,7 +13,7 @@ class LoadTester {
       value: (Math.random() * 10 * 1e18).toString(),
       gasPrice: (20 * 1e9).toString(),
       gasLimit: "200000",
-      data: "0x38ed1739", // swapExactTokensForTokens
+      data: "0x38ed1739",
       nonce: index,
       timestamp,
     };
@@ -24,17 +24,15 @@ class LoadTester {
     const baseTimestamp = Date.now();
 
     for (let i = 0; i < size; i++) {
-      // 10% chance of MEV pattern
       if (Math.random() < 0.1 && i >= 2) {
-        // Create sandwich pattern
         batch.push(
           this.generateTestTransaction(i - 2, true, baseTimestamp + i - 2)
-        ); // Front-run
+        );
         batch.push(
           this.generateTestTransaction(i - 1, false, baseTimestamp + i - 1)
-        ); // Victim
-        batch.push(this.generateTestTransaction(i, true, baseTimestamp + i)); // Back-run
-        i += 2; // Skip next iterations
+        );
+        batch.push(this.generateTestTransaction(i, true, baseTimestamp + i));
+        i += 2;
       } else {
         batch.push(this.generateTestTransaction(i, false, baseTimestamp + i));
       }
@@ -80,7 +78,6 @@ class LoadTester {
         detectedMEV++;
       }
 
-      // Calculate current TPS
       const currentTPS = (batch.length / (processingTime / 1000)).toFixed(0);
 
       if (processedBatches % 100 === 0) {
@@ -90,14 +87,12 @@ class LoadTester {
       }
     };
 
-    // Run batches at target rate
     const interval = setInterval(() => {
       for (let i = 0; i < batchesPerSecond; i++) {
         processBatch();
       }
     }, 1000);
 
-    // Stop after duration
     setTimeout(() => {
       clearInterval(interval);
 
@@ -125,7 +120,6 @@ class LoadTester {
         )}%`
       );
 
-      // Verify 1000+ TPS requirement
       if (parseFloat(avgTPS) >= 1000) {
         console.log("✅ WASM engine achieves required 1,000+ TPS!");
       } else {
@@ -134,7 +128,6 @@ class LoadTester {
     }, durationSeconds * 1000);
   }
 
-  // WASM-only benchmark
   wasmBenchmark() {
     console.log("🧪 Running WASM-only benchmark...");
 
@@ -148,11 +141,8 @@ class LoadTester {
   }
 }
 
-// Run load test
 const tester = new LoadTester();
 
-// Run WASM benchmark first
 tester.wasmBenchmark();
 
-// Then run full system load test
 tester.runLoadTest(10000, 30).catch(console.error);
