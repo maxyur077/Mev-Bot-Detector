@@ -1,0 +1,21 @@
+type MEVPattern @entity {
+  id: ID!
+  attacker: Bytes!
+  victim: Bytes!
+  frontRunTx: Bytes!
+  backRunTx: Bytes!
+  victimTx: Bytes!
+  blockNumber: BigInt!
+  timestamp: BigInt!
+  profitETH: BigDecimal!
+  sandwichType: String!
+}
+
+type SandwichAttack @entity {
+  id: ID!
+  attacker: Bytes!
+  victims: [Bytes!]!
+  totalProfit: BigDecimal!
+  attackCount: BigInt!
+  lastAttackTimestamp: BigInt!
+}

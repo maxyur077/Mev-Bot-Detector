@@ -1,0 +1,28 @@
+{
+  "name": "mev-bot-detector",
+  "version": "1.0.0",
+  "description": "Production-grade MEV-Bot Detector with real-time alerts",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node ingestion/index.js",
+    "build-wasm": "cd mev_engine && wasm-pack build --target nodejs",
+    "test": "node tests/integration-test.js",
+    "load-test": "node tests/load-test.js",
+    "demo": "node demo.js",
+    "docker-up": "cd infra && docker-compose up -d",
+    "docker-down": "cd infra && docker-compose down"
+  },
+  "dependencies": {
+    "ethers": "^6.13.0",
+    "kafkajs": "^2.2.4",
+    "redis": "^4.6.0",
+    "axios": "^1.6.0",
+    "ws": "^8.17.0",
+    "dotenv": "^16.4.0"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "@types/node": "^20.11.0"
+  }
+}
