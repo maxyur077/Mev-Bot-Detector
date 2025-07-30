@@ -12,6 +12,7 @@ A production-grade real-time MEV (Maximal Extractable Value) bot detector with h
 - **Real-time Alerts**: Kafka producer for instant MEV notifications
 - **Multi-Network Support**: Works with Ethereum mainnet and Worldchain
 - **Production Infrastructure**: Docker Compose with Kafka, Redis, PostgreSQL
+<img width="1541" height="795" alt="image" src="https://github.com/user-attachments/assets/faa8330e-91e1-4d67-af94-2b54b884c496" />
 
 ## 📋 Table of Contents
 
