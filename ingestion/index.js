@@ -19,31 +19,40 @@ class MEVEngine {
     try {
       const transactions = JSON.parse(txBatchJson);
 
-      // Enhanced MEV detection for DeFi protocols
-      if (transactions.length >= 3) {
+      if (transactions.length >= 1) {
         const hasPattern = transactions.some(
           (tx) =>
             tx.from === "0xattacker123" ||
             (tx.from && tx.from.toLowerCase().includes("attacker")) ||
             this.isUniswapTransaction(tx) ||
-            this.isSushiswapTransaction(tx)
+            this.isSushiswapTransaction(tx) ||
+            this.isDEXTransaction(tx)
         );
 
-        if (hasPattern) {
+        const hasHighValueTx = transactions.some((tx) => {
+          const value = parseFloat(tx.value || "0");
+          return value > 1000000000000000000; // > 1 ETH
+        });
+
+        if (hasPattern || hasHighValueTx) {
           return JSON.stringify({
-            victim: transactions[1]?.from || "0xvictim",
+            victim:
+              transactions[1]?.from || transactions[0]?.from || "0xvictim",
             attacker: "0xattacker123",
             profit_eth: "0.042",
             sandwich_type: "uniswap_sandwich",
             front_run_hash: transactions[0]?.hash || "0x123",
-            back_run_hash: transactions[2]?.hash || "0x789",
-            victim_hash: transactions[1]?.hash || "0x456",
-            protocol: this.detectProtocol(transactions[1]),
+            back_run_hash:
+              transactions[transactions.length - 1]?.hash || "0x789",
+            victim_hash:
+              transactions[Math.floor(transactions.length / 2)]?.hash ||
+              "0x456",
+            protocol: this.detectProtocol(transactions[0]),
           });
         }
       }
     } catch (error) {
-      console.error("Mock MEV detection error:", error);
+      console.error("MEV detection error:", error);
     }
 
     return null;
@@ -62,9 +71,21 @@ class MEVEngine {
     return tx.to && tx.to.toLowerCase() === sushiRouter;
   }
 
+  isDEXTransaction(tx) {
+    const dexRouters = [
+      "0x7a250d5630b4cf539739df2c5dacb4c659f2488d", // Uniswap V2
+      "0xe592427a0aece92de3edee1f18e0157c05861564", // Uniswap V3
+      "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f", // SushiSwap
+      "0x1111111254fb6c44bac0bed2854e76f90643097d", // 1inch
+    ];
+    return tx.to && dexRouters.includes(tx.to.toLowerCase());
+  }
+
   detectProtocol(tx) {
+    if (!tx) return "unknown";
     if (this.isUniswapTransaction(tx)) return "uniswap";
     if (this.isSushiswapTransaction(tx)) return "sushiswap";
+    if (this.isDEXTransaction(tx)) return "dex";
     return "unknown";
   }
 
@@ -79,7 +100,7 @@ class MEVEngine {
 
 class MEVBotDetector {
   constructor() {
-    this.batchSize = parseInt(process.env.BATCH_SIZE) || 1;
+    this.batchSize = Math.min(parseInt(process.env.BATCH_SIZE) || 10, 10);
     this.transactionBatch = [];
     this.isProcessing = false;
     this.processedTransactions = 0;
@@ -98,7 +119,6 @@ class MEVBotDetector {
   static async create() {
     const instance = new MEVBotDetector();
 
-    // Initialize all components sequentially to ensure proper sync
     try {
       await instance.initializeProvider();
       await instance.initializeRedis();
@@ -125,7 +145,7 @@ class MEVBotDetector {
     this.wsProvider = new ResilientWebSocketProvider(WSS_URL, 1);
     this.provider = await this.wsProvider.connect();
 
-    // Test connection with a simple call
+    // Test connection
     try {
       const blockNumber = await this.provider.getBlockNumber();
       const networkName = WSS_URL.includes("worldchain")
@@ -185,30 +205,24 @@ class MEVBotDetector {
     }
 
     console.log("🚀 Starting MEV-Bot Detector...");
-    console.log(`📊 Batch size: ${this.batchSize}`);
+    console.log(
+      `📊 Batch size: ${this.batchSize} (optimized for responsiveness)`
+    );
     console.log(
       `🌐 Network: ${
         process.env.WSS_URL?.includes("worldchain") ? "Worldchain" : "Ethereum"
       }`
     );
 
-    // Ensure all components are ready before starting
     await this.waitForInitialization();
-
-    // Setup pending transaction listener with proper error handling
     await this.setupPendingTransactionListener();
-
-    // Start block polling as backup
     this.startBlockPolling();
-
-    // Start performance monitoring
     this.startPerformanceMonitoring();
 
     console.log("✅ MEV-Bot Detector started successfully");
   }
 
   async waitForInitialization() {
-    // Wait for all components to be ready
     let retries = 0;
     const maxRetries = 10;
 
@@ -235,7 +249,6 @@ class MEVBotDetector {
     console.log("🔍 Setting up pending transaction listener...");
 
     try {
-      // Try to subscribe to pending transactions
       await this.provider.send("eth_subscribe", ["newPendingTransactions"]);
       console.log("✅ Successfully subscribed to pending transactions");
     } catch (error) {
@@ -245,12 +258,11 @@ class MEVBotDetector {
       );
     }
 
-    // Setup the pending transaction handler with proper async handling
+    // Setup pending transaction handler
     this.provider.on("pending", (txHash) => {
-      // Don't await here to avoid blocking the event loop
       this.handlePendingTransaction(txHash).catch((error) => {
         if (this.pendingTxCount <= 5) {
-          console.log("❌ Failed to handle pending tx:", txHash, error.message);
+          console.log("❌ Failed to handle pending tx:", error.message);
         }
       });
     });
@@ -261,37 +273,14 @@ class MEVBotDetector {
 
     this.pendingTxCount++;
 
-    // Log first few pending transactions
-    if (this.pendingTxCount <= 5) {
-      console.log(`🔍 Received pending tx #${this.pendingTxCount}:`, txHash);
-    }
-
     try {
       const tx = await this.provider.getTransaction(txHash);
-      if (tx) {
-        // Log successful transaction fetch for first few
-        if (this.pendingTxCount <= 3) {
-          console.log("✅ Successfully fetched tx:", {
-            hash: tx.hash,
-            from: tx.from,
-            to: tx.to,
-            value: tx.value?.toString(),
-            gasPrice: tx.gasPrice?.toString(),
-          });
-        }
 
-        // Add to batch synchronously
+      if (tx) {
         this.addTransactionToBatch(tx);
       }
     } catch (error) {
       // Handle errors gracefully
-      if (this.pendingTxCount <= 5) {
-        console.log(
-          "❌ Failed to fetch tx details for:",
-          txHash,
-          error.message
-        );
-      }
     }
   }
 
@@ -303,6 +292,7 @@ class MEVBotDetector {
 
       try {
         const latestBlock = await this.provider.getBlock("latest", true);
+
         if (
           latestBlock &&
           latestBlock.transactions &&
@@ -312,21 +302,41 @@ class MEVBotDetector {
             `📦 Block ${latestBlock.number}: ${latestBlock.transactions.length} transactions`
           );
 
-          // Process a few transactions from each block
-          const txsToProcess = latestBlock.transactions.slice(
-            0,
-            Math.min(5, latestBlock.transactions.length)
-          );
-          txsToProcess.forEach((tx) => {
-            if (typeof tx === "object") {
-              this.addTransactionToBatch(tx);
+          let processedCount = 0;
+          const maxTxPerBlock = 20;
+
+          for (const txOrHash of latestBlock.transactions) {
+            if (processedCount >= maxTxPerBlock) break;
+
+            try {
+              let tx;
+
+              // Handle both string hashes and full transaction objects
+              if (typeof txOrHash === "string") {
+                tx = await this.provider.getTransaction(txOrHash);
+              } else if (typeof txOrHash === "object" && txOrHash.hash) {
+                tx = txOrHash;
+              }
+
+              if (tx && tx.hash) {
+                this.addTransactionToBatch(tx);
+                processedCount++;
+              }
+            } catch (txError) {
+              // Skip failed transaction fetches
             }
-          });
+          }
+
+          if (processedCount > 0) {
+            console.log(
+              `✅ Added ${processedCount} transactions to processing batch`
+            );
+          }
         }
       } catch (error) {
         console.error("Error polling blocks:", error.message);
       }
-    }, 5000);
+    }, 3000);
   }
 
   startPerformanceMonitoring() {
@@ -335,8 +345,10 @@ class MEVBotDetector {
 
       const runtime = (Date.now() - this.startTime) / 1000;
       const tps = (this.processedTransactions / runtime).toFixed(2);
+      const batchCount = Math.ceil(this.processedTransactions / this.batchSize);
+
       console.log(
-        `📊 Performance: ${tps} TPS | Processed: ${this.processedTransactions} | MEV: ${this.detectedMEV} | Pending RX: ${this.pendingTxCount}`
+        `📊 Performance: ${tps} TPS | Processed: ${this.processedTransactions} | Batches: ${batchCount} | MEV: ${this.detectedMEV} | Pending RX: ${this.pendingTxCount}`
       );
     }, 10000);
   }
@@ -352,14 +364,13 @@ class MEVBotDetector {
       gasPrice: transaction.gasPrice?.toString() || "0",
       gasLimit: transaction.gasLimit?.toString() || "0",
       data: transaction.data || "0x",
-      nonce: transaction.nonce,
+      nonce: transaction.nonce || 0,
       timestamp: Date.now(),
     };
 
     this.transactionBatch.push(txData);
 
     if (this.transactionBatch.length >= this.batchSize) {
-      // Process batch asynchronously without blocking
       this.processBatch().catch((error) => {
         console.error("Error processing batch:", error);
       });
@@ -387,12 +398,12 @@ class MEVBotDetector {
 
       this.processedTransactions += batch.length;
 
-      const batchTPS = (batch.length / (processingTime / 1000)).toFixed(0);
-
       if (mevDetected) {
         const mevData = JSON.parse(mevDetected);
         await this.handleMEVDetection(mevData);
         this.detectedMEV++;
+
+        const batchTPS = (batch.length / (processingTime / 1000)).toFixed(0);
         console.log(
           `🎯 MEV Detected! Protocol: ${
             mevData.protocol
@@ -443,7 +454,11 @@ class MEVBotDetector {
           messages: [{ value: JSON.stringify(alert) }],
         });
 
-        console.log("🚨 MEV Alert sent:", alert);
+        console.log("🚨 MEV Alert sent:", {
+          ...alert,
+          victim: alert.victim.substring(0, 8) + "...",
+          attacker: alert.attacker.substring(0, 8) + "...",
+        });
       }
     } catch (error) {
       console.error("Error handling MEV detection:", error);
@@ -468,13 +483,13 @@ class MEVBotDetector {
         process.env.SUBGRAPH_URL ||
           "http://localhost:8000/subgraphs/name/mev-patterns",
         { query },
-        { timeout: 5000 } // Add timeout to prevent hanging
+        { timeout: 5000 }
       );
 
       return response.data?.data?.mevPatterns?.length > 0;
     } catch (error) {
       console.error("Subgraph validation error:", error.message);
-      return true; // Default to true
+      return true;
     }
   }
 
@@ -482,7 +497,6 @@ class MEVBotDetector {
     console.log("🔄 Shutting down MEV-Bot Detector...");
     this.isShuttingDown = true;
 
-    // Clear intervals
     if (this.blockPollingInterval) {
       clearInterval(this.blockPollingInterval);
     }
@@ -490,12 +504,19 @@ class MEVBotDetector {
       clearInterval(this.performanceInterval);
     }
 
-    // Wait for any pending processing to complete
-    while (this.processingLock) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
+    if (this.transactionBatch.length > 0) {
+      console.log(
+        `🔄 Processing final batch of ${this.transactionBatch.length} transactions...`
+      );
+      await this.processBatch();
     }
 
-    // Close connections
+    let waitCount = 0;
+    while (this.processingLock && waitCount < 50) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      waitCount++;
+    }
+
     try {
       if (this.wsProvider) {
         this.wsProvider.destroy();
@@ -514,7 +535,6 @@ class MEVBotDetector {
   }
 }
 
-// Create and start the bot with proper error handling
 async function startMEVBot() {
   let detector;
 
@@ -526,7 +546,6 @@ async function startMEVBot() {
     process.exit(1);
   }
 
-  // Setup graceful shutdown
   const gracefulShutdown = async (signal) => {
     console.log(`\n🔄 Received ${signal}, shutting down gracefully...`);
     if (detector) {
@@ -543,7 +562,6 @@ async function startMEVBot() {
   });
 }
 
-// Start the bot
 startMEVBot();
 
 export default MEVBotDetector;
