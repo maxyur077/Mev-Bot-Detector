@@ -70,11 +70,16 @@ text
 
 npm install
 
-text
 
 ### 3. Set Up Infrastructure
 
 Start Redis, Kafka, and other services
+1]Run the Docker Desktop
+2]Then in the code terminal cd infra
+3]enter docker compose up -d     
+4]cd ..
+5]npm start
+
 npm run docker-up
 
 Wait 30-60 seconds for services to fully start
