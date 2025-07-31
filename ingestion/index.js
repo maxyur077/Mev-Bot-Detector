@@ -7,18 +7,16 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-
 class PriceService {
   constructor() {
-    this.cachedPrice = 3400; 
+    this.cachedPrice = 3400;
     this.lastUpdate = 0;
-    this.updateInterval = 30000; 
+    this.updateInterval = 30000;
   }
 
   async getETHPrice() {
     const now = Date.now();
 
-    
     if (now - this.lastUpdate < this.updateInterval) {
       return this.cachedPrice;
     }
@@ -42,12 +40,12 @@ class PriceService {
     const apis = [
       {
         name: "CoinGecko",
-        url: "https:
+        url: "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd",
         extract: (data) => data.ethereum.usd,
       },
       {
         name: "Binance",
-        url: "https:
+        url: "https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT",
         extract: (data) => parseFloat(data.price),
       },
     ];
@@ -69,7 +67,6 @@ class PriceService {
   }
 }
 
-
 class MEVEngine {
   constructor() {
     this.processed_count = 0;
@@ -82,9 +79,7 @@ class MEVEngine {
     try {
       const transactions = JSON.parse(txBatchJson);
 
-      
       if (transactions.length >= 1) {
-        
         const hasAttackPattern = transactions.some(
           (tx) =>
             tx.from === "0xattacker123" ||
@@ -94,27 +89,22 @@ class MEVEngine {
             this.isDEXTransaction(tx)
         );
 
-        
         const hasHighValueTx = transactions.some((tx) => {
           const value = parseFloat(tx.value || "0");
-          return value > 10000000000000000; 
+          return value > 10000000000000000;
         });
 
-        
         const frequentTraders = this.detectFrequentTraders(transactions);
 
-        
         const hasHighGasPrice = transactions.some((tx) => {
           const gasPrice = parseFloat(tx.gasPrice || "0");
-          return gasPrice > 30000000000; 
+          return gasPrice > 30000000000;
         });
 
-        
         const hasContractInteraction = transactions.some(
           (tx) => tx.data && tx.data !== "0x" && tx.data.length > 10
         );
 
-        
         if (
           hasAttackPattern ||
           hasHighValueTx ||
@@ -134,7 +124,7 @@ class MEVEngine {
             victim:
               transactions[1]?.from || transactions[0]?.from || "0xvictim",
             attacker: this.identifyAttacker(transactions),
-            profit_calculation: "pending", 
+            profit_calculation: "pending",
             sandwich_type: detectedType.type,
             front_run_hash: transactions[0]?.hash || "0x123",
             back_run_hash:
@@ -145,7 +135,7 @@ class MEVEngine {
             protocol: this.detectProtocol(transactions[0]),
             confidence: detectedType.confidence,
             detection_reason: detectedType.reason,
-            transaction_data: transactions, 
+            transaction_data: transactions,
           });
         }
       }
@@ -156,31 +146,25 @@ class MEVEngine {
     return null;
   }
 
-  
   async calculateSandwichProfit(transactions) {
     try {
       const ethPrice = await this.priceService.getETHPrice();
 
-      
       const analysis = this.analyzeSandwichPattern(transactions);
 
       if (!analysis.isSandwich) {
         return this.estimateGenericMEVProfit(transactions, ethPrice);
       }
 
-      
       const frontRunTx = analysis.frontRun;
       const victimTx = analysis.victim;
       const backRunTx = analysis.backRun;
 
-      
       const priceImpact = this.calculatePriceImpact(victimTx);
       const gasCostaETH = this.calculateGasCosts([frontRunTx, backRunTx]);
 
-      
       let profitETH = priceImpact.profitETH - gasCostaETH;
 
-      
       profitETH = Math.max(profitETH, 0.001);
 
       const profitUSD = profitETH * ethPrice;
@@ -210,12 +194,10 @@ class MEVEngine {
   }
 
   analyzeSandwichPattern(transactions) {
-    
     if (transactions.length < 2) {
       return { isSandwich: false };
     }
 
-    
     const addressCounts = {};
     transactions.forEach((tx, index) => {
       if (tx.from) {
@@ -226,7 +208,6 @@ class MEVEngine {
       }
     });
 
-    
     const attacker = Object.entries(addressCounts).find(
       ([addr, indices]) => indices.length > 1
     );
@@ -237,7 +218,6 @@ class MEVEngine {
 
     const [attackerAddr, attackerIndices] = attacker;
 
-    
     if (attackerIndices.length >= 2) {
       return {
         isSandwich: true,
@@ -254,20 +234,19 @@ class MEVEngine {
   calculatePriceImpact(victimTx) {
     const victimValueETH = parseFloat(victimTx?.value || "0") / 1e18;
 
-    
     let impactPercentage;
     if (victimValueETH > 10) {
-      impactPercentage = 0.005; 
+      impactPercentage = 0.005;
     } else if (victimValueETH > 1) {
-      impactPercentage = 0.003; 
+      impactPercentage = 0.003;
     } else if (victimValueETH > 0.1) {
-      impactPercentage = 0.002; 
+      impactPercentage = 0.002;
     } else {
-      impactPercentage = 0.001; 
+      impactPercentage = 0.001;
     }
 
     const profitETH = victimValueETH * impactPercentage;
-    const victimLossETH = victimValueETH * (impactPercentage * 0.8); 
+    const victimLossETH = victimValueETH * (impactPercentage * 0.8);
 
     return {
       profitETH,
@@ -283,7 +262,7 @@ class MEVEngine {
       return sum + gasPrice * gasLimit;
     }, 0);
 
-    return totalGas / 1e18; 
+    return totalGas / 1e18;
   }
 
   async estimateGenericMEVProfit(transactions, ethPrice) {
@@ -294,10 +273,8 @@ class MEVEngine {
     const totalValueETH = totalValue / 1e18;
     const totalValueUSD = totalValueETH * ethPrice;
 
-    
     let baseProfitETH;
 
-    
     const avgGasPrice =
       transactions.reduce((sum, tx) => {
         return sum + parseFloat(tx.gasPrice || "0");
@@ -305,37 +282,29 @@ class MEVEngine {
 
     const avgGasGwei = avgGasPrice / 1e9;
 
-    
     if (avgGasGwei > 50) {
-      baseProfitETH = 0.002 + Math.random() * 0.008; 
+      baseProfitETH = 0.002 + Math.random() * 0.008;
     } else if (avgGasGwei > 30) {
-      baseProfitETH = 0.001 + Math.random() * 0.004; 
+      baseProfitETH = 0.001 + Math.random() * 0.004;
     } else {
-      baseProfitETH = 0.0002 + Math.random() * 0.0018; 
+      baseProfitETH = 0.0002 + Math.random() * 0.0018;
     }
 
-    
     const complexTxs = transactions.filter(
       (tx) => tx.data && tx.data !== "0x" && tx.data.length > 100
     ).length;
 
     const complexityBonus = complexTxs * (0.0001 + Math.random() * 0.0004);
 
-    
     let valueBonus = 0;
     if (totalValueUSD > 100) {
-      valueBonus = totalValueETH * (0.001 + Math.random() * 0.002); 
+      valueBonus = totalValueETH * (0.001 + Math.random() * 0.002);
     } else if (totalValueUSD > 10) {
-      valueBonus = totalValueETH * (0.0005 + Math.random() * 0.0015); 
+      valueBonus = totalValueETH * (0.0005 + Math.random() * 0.0015);
     }
 
-    
     let profitETH = baseProfitETH + complexityBonus + valueBonus;
 
-    
-    
-
-    
     profitETH = Math.min(profitETH, 0.1);
 
     return {
@@ -352,7 +321,7 @@ class MEVEngine {
   }
 
   getFallbackProfit() {
-    const fallbackProfitETH = 0.001 + Math.random() * 0.05; 
+    const fallbackProfitETH = 0.001 + Math.random() * 0.05;
     return {
       eth: fallbackProfitETH.toFixed(6),
       usd: (fallbackProfitETH * 3400).toFixed(2),
@@ -439,8 +408,8 @@ class MEVEngine {
 
   isUniswapTransaction(tx) {
     const uniswapRouters = [
-      "0x7a250d5630b4cf539739df2c5dacb4c659f2488d", 
-      "0xe592427a0aece92de3edee1f18e0157c05861564", 
+      "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+      "0xe592427a0aece92de3edee1f18e0157c05861564",
     ];
     return tx.to && uniswapRouters.includes(tx.to.toLowerCase());
   }
@@ -452,10 +421,10 @@ class MEVEngine {
 
   isDEXTransaction(tx) {
     const dexRouters = [
-      "0x7a250d5630b4cf539739df2c5dacb4c659f2488d", 
-      "0xe592427a0aece92de3edee1f18e0157c05861564", 
-      "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f", 
-      "0x1111111254fb6c44bac0bed2854e76f90643097d", 
+      "0x7a250d5630b4cf539739df2c5dacb4c659f2488d",
+      "0xe592427a0aece92de3edee1f18e0157c05861564",
+      "0xd9e1ce17f2641f24ae83637ab66a2cca9c378b9f",
+      "0x1111111254fb6c44bac0bed2854e76f90643097d",
     ];
     return tx.to && dexRouters.includes(tx.to.toLowerCase());
   }
@@ -490,7 +459,6 @@ class MEVBotDetector {
     this.performanceInterval = null;
     this.isShuttingDown = false;
 
-    
     this.processingLock = false;
     this.batchQueue = [];
   }
@@ -513,8 +481,7 @@ class MEVBotDetector {
   }
 
   async initializeProvider() {
-    const WSS_URL =
-      process.env.WSS_URL || "wss:
+    const WSS_URL = process.env.WSS_URL;
 
     console.log(
       "🔗 Connecting to Alchemy WebSocket:",
@@ -524,7 +491,6 @@ class MEVBotDetector {
     this.wsProvider = new ResilientWebSocketProvider(WSS_URL, 1);
     this.provider = await this.wsProvider.connect();
 
-    
     try {
       const blockNumber = await this.provider.getBlockNumber();
       const networkName = WSS_URL.includes("worldchain")
@@ -637,7 +603,6 @@ class MEVBotDetector {
       );
     }
 
-    
     this.provider.on("pending", (txHash) => {
       this.handlePendingTransaction(txHash).catch((error) => {
         if (this.pendingTxCount <= 5) {
@@ -658,9 +623,7 @@ class MEVBotDetector {
       if (tx) {
         this.addTransactionToBatch(tx);
       }
-    } catch (error) {
-      
-    }
+    } catch (error) {}
   }
 
   startBlockPolling() {
@@ -690,7 +653,6 @@ class MEVBotDetector {
             try {
               let tx;
 
-              
               if (typeof txOrHash === "string") {
                 tx = await this.provider.getTransaction(txOrHash);
               } else if (typeof txOrHash === "object" && txOrHash.hash) {
@@ -701,9 +663,7 @@ class MEVBotDetector {
                 this.addTransactionToBatch(tx);
                 processedCount++;
               }
-            } catch (txError) {
-              
-            }
+            } catch (txError) {}
           }
 
           if (processedCount > 0) {
@@ -780,12 +740,10 @@ class MEVBotDetector {
       if (mevDetected) {
         const mevData = JSON.parse(mevDetected);
 
-        
         const profitCalculation = await this.mevEngine.calculateSandwichProfit(
           mevData.transaction_data || batch
         );
 
-        
         mevData.profit_eth = profitCalculation.eth;
         mevData.profit_usd = profitCalculation.usd;
         mevData.eth_price = profitCalculation.ethPrice;
@@ -846,12 +804,11 @@ class MEVBotDetector {
         console.log(
           `🔇 Duplicate MEV alert suppressed for ${attacker.substring(0, 8)}...`
         );
-        return; 
+        return;
       }
 
       await this.redis.setEx(redisKey, 300, Date.now().toString());
 
-      
       const isValidMEV = true;
 
       if (isValidMEV) {
@@ -892,7 +849,6 @@ class MEVBotDetector {
   }
 
   async validateWithSubgraph(attacker, victim) {
-    
     try {
       return true;
     } catch (error) {
@@ -942,7 +898,6 @@ class MEVBotDetector {
     console.log("✅ Shutdown complete");
   }
 }
-
 
 async function startMEVBot() {
   let detector;
