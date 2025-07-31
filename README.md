@@ -12,6 +12,7 @@ A production-grade real-time MEV (Maximal Extractable Value) bot detector with h
 - **Real-time Alerts**: Kafka producer for instant MEV notifications
 - **Multi-Network Support**: Works with Ethereum mainnet and Worldchain
 - **Production Infrastructure**: Docker Compose with Kafka, Redis, PostgreSQL
+<img width="1541" height="795" alt="image" src="https://github.com/user-attachments/assets/faa8330e-91e1-4d67-af94-2b54b884c496" />
 
 ## 📋 Table of Contents
 
@@ -70,11 +71,16 @@ text
 
 npm install
 
-text
 
 ### 3. Set Up Infrastructure
 
 Start Redis, Kafka, and other services
+1]Run the Docker Desktop
+2]Then in the code terminal cd infra
+3]enter docker compose up -d     
+4]cd ..
+5]npm start
+
 npm run docker-up
 
 Wait 30-60 seconds for services to fully start
